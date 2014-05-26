@@ -70,8 +70,16 @@ func (e *EventPusher) AddEventHandler(ev EventTypes,func_callback EventHandlerCa
 	return  id
 }
 //Remove
-func (e *EventPusher) RemoveEventHandler(evt *EventHandler) {
-
+func (e *EventPusher) RemoveEventHandler(id uint64) int {
+	newslice := make([]EventHandler,len(e.handler_queue) -1)
+		for i :=0; i < len(e.handler_queue); i++ {
+		current_handler := e.handler_queue[i]
+		if(current_handler.idenitier != id) {
+			newslice = append(newslice,current_handler)
+		}
+	}
+	e.handler_queue = newslice
+	return len(e.handler_queue)
 }
 //Fire
 func (e *EventPusher) FireEvent(ev EventTypes) {
