@@ -3,33 +3,27 @@ import (
 	"log"
 	"time"
 	"math/rand"
+	"crypto/md5"
+	"io"
+	"fmt"
 )
-type State int
-type EventTypes int
 
+type State int
 const(
 	Exiting State = 0
 	Running State = 1
 )
-const(
-	WakeUp EventTypes = 0
-	Sleep EventTypes = 1
-	Suspending EventTypes = 2
-	Unknown EventTypes = 3
-)
 type EventPusher struct {
 	state State
 	handler_queue []EventHandler
-	fired_queue []EventTypes
+	fired_queue []string
 }
-type EventHandlerCallback func(EventTypes,uint64)
-
+type EventHandlerCallback func(string,uint64)
 type EventHandler struct {
 	idenitier uint64
-	evt_type EventTypes
+	evt_type string
 	event_callback EventHandlerCallback
 }
-//Private API
 func(e* EventPusher) runtime() {
 	log.Println("Starting runtime loop...")
 	for {
@@ -47,12 +41,17 @@ func(e* EventPusher) runtime() {
 		time.Sleep(25 * time.Millisecond)
 	}
 }
+func generateHASH(x string) string {
+	h := md5.New()
+	io.WriteString(h,x)
+	s := fmt.Sprintf("%x",h.Sum(nil))
+	return s
+}
 func generateGUID() uint64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	t := uint64(rand.Uint32()) << 32 + uint64(rand.Uint32())
 	return t
 }
-//Public API 
 func (e* EventPusher) Init() bool {
 	e.state = Running
 	go e.runtime()
@@ -61,18 +60,17 @@ func (e* EventPusher) Init() bool {
 func (e* EventPusher) GetStatus() State {
 	return e.state
 }
-//Add
-func (e *EventPusher) AddEventHandler(ev EventTypes,func_callback EventHandlerCallback ) uint64{
+func (e *EventPusher) AddEventHandler(ev string,func_callback EventHandlerCallback ) uint64{
 	id := generateGUID()
-	evt := EventHandler { idenitier: id, evt_type:ev, event_callback: func_callback}
+	hashed_ev := generateHASH(ev)
+	evt := EventHandler { idenitier: id, evt_type:hashed_ev, event_callback: func_callback}
 	e.handler_queue = append(e.handler_queue,evt)
 	log.Println("Created new event - ",evt)
 	return  id
 }
-//Remove
 func (e *EventPusher) RemoveEventHandler(id uint64) int {
 	newslice := make([]EventHandler,len(e.handler_queue) -1)
-		for i :=0; i < len(e.handler_queue); i++ {
+	for i :=0; i < len(e.handler_queue); i++ {
 		current_handler := e.handler_queue[i]
 		if(current_handler.idenitier != id) {
 			newslice = append(newslice,current_handler)
@@ -81,8 +79,8 @@ func (e *EventPusher) RemoveEventHandler(id uint64) int {
 	e.handler_queue = newslice
 	return len(e.handler_queue)
 }
-//Fire
-func (e *EventPusher) FireEvent(ev EventTypes) {
-	log.Println("Firing event of type - ", ev)
-	e.fired_queue = append(e.fired_queue,ev)
+func (e *EventPusher) FireEvent(ev string) {
+	hashed_ev := generateHASH(ev)
+	log.Println("Firing event ",hashed_ev)
+	e.fired_queue = append(e.fired_queue,hashed_ev)
 }
